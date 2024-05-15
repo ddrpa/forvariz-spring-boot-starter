@@ -1,4 +1,4 @@
-# Förvariz Spring Boot Starter
+# Förvariz Spring Boot Starter - 支持批量实例化 MinIO Client 的 Spring Boot Starter
 
 MinIO 是一个高性能的 S3 兼容的对象存储系统实现，要在 Spring Boot 项目中使用 MinIO，你需要配置 `io.minio:minio` 依赖，然后实例化 `io.minio.MinioClient` Bean。
 
@@ -12,9 +12,28 @@ Förvariz 是作者向 ChatGPT 询问获得的项目名称，prompt 如下：
 
 ## 怎样使用
 
-由于作者对异常定义、API 设计等内容还需要考虑一下，项目目前只发布 SNAPSHOT 版本。
+由于作者对异常定义、API 设计等内容还需要考虑一下，项目目前只发布 SNAPSHOT 版本，需要添加 snapshots 源：
 
-你需要在 `application.properties` 中提供访问存储桶的配置，不过作者更喜欢 YAML 格式的配置：
+```xml
+<repositories>
+  <repository>
+    <id>snapshots</id>
+    <url>https://s01.oss.sonatype.org/content/repositories/snapshots/</url>
+  </repository>
+</repositories>
+```
+
+通过 [sonatype.org](https://s01.oss.sonatype.org/#nexus-search;quick~cc.ddrpa.dorian) 查找最新版本，在 `pom.xml` 中添加：
+
+```xml
+<dependency>
+    <groupId>cc.ddrpa.dorian</groupId>
+    <artifactId>forvariz-spring-boot-starter</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+</dependency>
+```
+
+你需要在 `application.properties` 中提供访问存储桶的配置，不过作者更喜欢 YAML：
 
 ```yaml
 forvariz:
@@ -53,7 +72,7 @@ public class IndexController {
         this.bs3 = bs3;
         // ...
 
-// 使用 @Autowired 风格的注入方法
+// @Autowired 风格
 @SpringBootTest
 public class BucketServiceTests {
     @Autowired

@@ -1,0 +1,9 @@
+{
+  "properties": [
+    {
+      "name": "forvariz",
+      "type": "java.util.List",
+      "description": "Bucket configuration."
+    }
+  ]
+}

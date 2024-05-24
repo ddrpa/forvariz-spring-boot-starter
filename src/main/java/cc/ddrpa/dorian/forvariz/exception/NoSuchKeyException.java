@@ -1,8 +1,12 @@
 package cc.ddrpa.dorian.forvariz.exception;
 
-public class NoSuchKeyException extends Exception {
-    // TODO 需要更多的信息
-    public NoSuchKeyException(Throwable cause) {
-        super(cause);
+public class NoSuchKeyException extends ForvarizException {
+
+    public NoSuchKeyException(String message) {
+        super(message);
+    }
+
+    public NoSuchKeyException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

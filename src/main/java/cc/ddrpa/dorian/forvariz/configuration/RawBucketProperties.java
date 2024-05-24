@@ -1,6 +1,7 @@
 package cc.ddrpa.dorian.forvariz.configuration;
 
 public class RawBucketProperties {
+
     /**
      * Whether this bucket is primary
      */
@@ -34,9 +35,9 @@ public class RawBucketProperties {
      */
     private String bucket;
     /**
-     * Public URL of bucket, used by pre-signed URL generation
+     * Delimiter of bucket object key, default is "/"
      */
-    private String publicURL;
+    private String delimiter = "/";
 
     public boolean isPrimary() {
         return primary;
@@ -110,12 +111,12 @@ public class RawBucketProperties {
         return this;
     }
 
-    public String getPublicURL() {
-        return publicURL;
+    public String getDelimiter() {
+        return delimiter;
     }
 
-    public RawBucketProperties setPublicURL(String publicURL) {
-        this.publicURL = publicURL;
+    public RawBucketProperties setDelimiter(String delimiter) {
+        this.delimiter = delimiter;
         return this;
     }
 }

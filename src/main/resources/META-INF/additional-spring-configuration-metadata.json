@@ -2,8 +2,56 @@
   "properties": [
     {
       "name": "forvariz",
-      "type": "java.util.List",
-      "description": "Bucket configuration."
+      "type": "java.util.List<cc.ddrpa.dorian.forvariz.configuration.RawBucketProperties>",
+      "description": "List of bucket configuration.",
+      "sourceType": "cc.ddrpa.dorian.forvariz.configuration.RawBucketProperties"
+    },
+    {
+      "name": "forvariz[].primary",
+      "type": "java.lang.Boolean",
+      "description": "Indicates if this one is the primary bean."
+    },
+    {
+      "name": "forvariz[].bucket",
+      "type": "java.lang.String",
+      "description": "Bucket name."
+    },
+    {
+      "name": "forvariz[].qualifier",
+      "type": "java.lang.String",
+      "description": "Qualifier for the configured bean."
+    },
+    {
+      "name": "forvariz[].endpoint",
+      "type": "java.lang.String",
+      "description": "Endpoint URL of given bucket."
+    },
+    {
+      "name": "forvariz[].credentials",
+      "type": "java.lang.String",
+      "description": "Path to the credentials file, not necessary if the accessKey and secretKey were given."
+    },
+    {
+      "name": "forvariz[].accessKey",
+      "type": "java.lang.String",
+      "description": "Access key, not necessary if the credentials file was given."
+    },
+    {
+      "name": "forvariz[].secretKey",
+      "type": "java.lang.String",
+      "description": "Secret key, not necessary if the credentials file was given."
+    },
+    {
+      "name": "forvariz[].delimiter",
+      "type": "java.lang.String",
+      "description": "Delimiter for object prefix in bucket.",
+      "defaultValue": "/"
+    },
+    {
+      "name": "forvariz[].region",
+      "type": "java.lang.String",
+      "description": "Region of the bucket.",
+      "defaultValue": "us-east-1"
     }
   ]
 }

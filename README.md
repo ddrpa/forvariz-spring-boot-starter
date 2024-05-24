@@ -12,28 +12,19 @@ Förvariz 是作者向 ChatGPT 询问获得的项目名称，prompt 如下：
 
 ## 怎样使用
 
-由于作者对异常定义、API 设计等内容还需要考虑一下，项目目前只发布 SNAPSHOT 版本，需要添加 snapshots 源：
+目前发布了 1.0.0 版本，作者对异常定义、API 设计等内容还在考虑中，后续可能还会有一些调整。
 
-```xml
-<repositories>
-  <repository>
-    <id>snapshots</id>
-    <url>https://s01.oss.sonatype.org/content/repositories/snapshots/</url>
-  </repository>
-</repositories>
-```
-
-通过 [sonatype.org](https://s01.oss.sonatype.org/#nexus-search;quick~cc.ddrpa.dorian) 查找最新版本，在 `pom.xml` 中添加：
+通过 [central.sonatype.com](https://s01.oss.sonatype.org/#nexus-search;quick~cc.ddrpa.dorian) 或 [mvnrepository.com](https://mvnrepository.com/artifact/cc.ddrpa.dorian) 可以查找最新版本，在 `pom.xml` 中添加：
 
 ```xml
 <dependency>
     <groupId>cc.ddrpa.dorian</groupId>
     <artifactId>forvariz-spring-boot-starter</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>1.0.0</version>
 </dependency>
 ```
 
-你需要在 `application.properties` 中提供访问存储桶的配置，不过作者更喜欢 YAML：
+你需要在 `application.properties` 中提供访问存储桶的配置，不过作者更喜欢 YAML。虽然作者提供了 `additional-spring-configuration-metadata.json`，不过行为好像不太符合预期，所以你可能需要手动添加配置：
 
 ```yaml
 forvariz:
@@ -72,7 +63,7 @@ public class IndexController {
         this.bs3 = bs3;
         // ...
 
-// @Autowired 风格
+// 或使用 @Autowired 风格的注入方式
 @SpringBootTest
 public class BucketServiceTests {
     @Autowired

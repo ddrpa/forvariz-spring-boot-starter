@@ -4,27 +4,27 @@ MinIO 是一个高性能的 S3 兼容的对象存储系统实现，要在 Spring
 
 你可以使用 `@ConfigurationProperties` 注解配合 `application.properties` 配置 MinIO 客户端，这方面也有不少 `minio-spring-boot-starter` 可用，例如 [jlefebure/spring-boot-starter-minio - GitHub](https://github.com/jlefebure/spring-boot-starter-minio)。不过涉及到需要实例化多个 MinIO 客户端时（例如针对不同的场景需要操作特定 policy 的 bucket），事情就有些棘手了。
 
-Förvariz Spring Boot Starter 项目提供这种批量实例化 MinIO 客户端的功能，代码基于 JDK 17 和 Spring Boot 3 编写，不过稍加改造应当也可以用于 JDK8 和 Spring Boot 2。
+Förvariz Spring Boot Starter 项目提供这种批量实例化 MinIO 客户端的功能，项目代码基于 JDK 17 和 Spring Boot 3 编写，不过稍加改造应当也可以用于 Spring Boot 2。此外，就算你不需要使用多 Bucket 源这种特性，将 `cc.ddrpa.dorian.forvariz.BucketService` 用于自己的项目也是不错的。
 
-Förvariz 是作者向 ChatGPT 询问获得的项目名称，prompt 如下：
+Förvariz 是作者向 ChatGPT 询问后获得的项目名称，prompt 如下：
 
 > 给我 10 个宜家风格的项目名称，名字要有 “存储” 的含义，可以使用瑞典语字符
 
 ## 怎样使用
 
-目前发布了 1.0.0 版本，作者对异常定义、API 设计等内容还在考虑中，后续可能还会有一些调整。
+作者对异常定义、API 设计等内容还在考虑中，后续可能还会有一些调整。你可以通过 [central.sonatype.com](https://central.sonatype.com/search?q=forvariz) 或 [mvnrepository.com](https://mvnrepository.com/artifact/cc.ddrpa.dorian) 查找最新版本。
 
-通过 [central.sonatype.com](https://s01.oss.sonatype.org/#nexus-search;quick~cc.ddrpa.dorian) 或 [mvnrepository.com](https://mvnrepository.com/artifact/cc.ddrpa.dorian) 可以查找最新版本，在 `pom.xml` 中添加：
+在 `pom.xml` 中添加：
 
 ```xml
 <dependency>
     <groupId>cc.ddrpa.dorian</groupId>
     <artifactId>forvariz-spring-boot-starter</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 
-你需要在 `application.properties` 中提供访问存储桶的配置，不过作者更喜欢 YAML。虽然作者提供了 `additional-spring-configuration-metadata.json`，不过行为好像不太符合预期，所以你可能需要手动添加配置：
+你需要在 `application.properties` 中提供访问存储桶的配置，不过作者更喜欢 YAML。虽然作者提供了 `additional-spring-configuration-metadata.json`，不过行为好像不太符合预期：
 
 ```yaml
 forvariz:
@@ -45,7 +45,7 @@ forvariz:
     credentials: /Users/yufan/DevSpace/learn-java/omni-demo/credentials.json
 ```
 
-在 `Controller`、`Service` 中注入 `cc.ddrpa.dorian.forvariz.BucketService` 实例，你可以使用 `@Qualifier` 特别指定要使用的 OSS 客户端实例：
+在 `Controller`、`Service` 中注入 `cc.ddrpa.dorian.forvariz.BucketService` 实例，你可以使用 `@Qualifier` 特别指定要使用的实例：
 
 ```java
 // 使用构造器注入

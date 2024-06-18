@@ -5,8 +5,10 @@ import cc.ddrpa.dorian.forvariz.exception.GeneralBucketServiceException;
 import cc.ddrpa.dorian.forvariz.exception.NoSuchKeyException;
 import io.minio.GetObjectArgs;
 import io.minio.GetPresignedObjectUrlArgs;
+import io.minio.GetPresignedObjectUrlArgs.Builder;
 import io.minio.ListObjectsArgs;
 import io.minio.MinioClient;
+import io.minio.PostPolicy;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
 import io.minio.Result;
@@ -25,15 +27,20 @@ import java.io.InputStream;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.StreamSupport;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public class BucketService {
+
+    // 预签名 URL 的过期时间默认为 7 天，与 MinIO 保持一致
+    private static final int DEFAULT_PRESIGNED_URL_EXPIRATION_IN_SECONDS = 7 * 24 * 60 * 60;
 
     private final String bucket;
     private final MinioClient minioClient;
@@ -146,7 +153,7 @@ public class BucketService {
     }
 
     /**
-     * 获取指定对象的元数据
+     * 获取指定对象的元数据，常见的用法是判断对象是否存在
      *
      * @param objectName
      * @return
@@ -248,23 +255,54 @@ public class BucketService {
      * 获取一个预签名的 URL，用于访问对象
      *
      * @param objectName     对象名称
-     * @param expireDuration 过期时间，受到 MinIO 等服务实现的限制，若要设置更长时间，请考虑使用 Policy
+     * @param expireDuration 链接过期时间，默认为 7 天；受到 MinIO 等服务实现的限制，若要设置更长时间，请考虑通过 bucket 的 Policy 设置
      * @return 用于访问文件的 URL
      * @throws ArithmeticException
      * @throws NoSuchKeyException            如果指定的对象不存在，抛出此异常
      * @throws GeneralBucketServiceException 其他异常
      */
-    public String presignObjectUrlToGet(@NotNull String objectName,
-        @NotNull Duration expireDuration)
+    public String presignObjectUrlToGet(
+        @NotNull String objectName,
+        @Nullable Duration expireDuration)
         throws GeneralBucketServiceException, ArithmeticException, NoSuchKeyException {
+        return presignObjectUrlToGet(objectName, expireDuration, null, null);
+    }
+
+    /**
+     * 获取一个预签名的 URL，用于访问对象
+     *
+     * @param objectName       对象名称
+     * @param expireDuration   链接过期时间，默认为 7 天；受到 MinIO 等服务实现的限制，若要设置更长时间，请考虑通过 bucket 的 Policy 设置
+     * @param extraHeaders     要求客户端发起的请求在请求头中包含指定键值对
+     * @param extraQueryParams
+     * @return 用于访问文件的 URL
+     * @throws ArithmeticException
+     * @throws NoSuchKeyException            如果指定的对象不存在，抛出此异常
+     * @throws GeneralBucketServiceException 其他异常
+     */
+    public String presignObjectUrlToGet(
+        @NotNull String objectName,
+        @Nullable Duration expireDuration,
+        @Nullable Map<String, String> extraHeaders,
+        @Nullable Map<String, String> extraQueryParams)
+        throws GeneralBucketServiceException, ArithmeticException, NoSuchKeyException {
+        Builder builder = GetPresignedObjectUrlArgs.builder()
+            .method(Method.GET)
+            .bucket(bucket)
+            .object(objectName);
+        if (null == expireDuration) {
+            builder.expiry(DEFAULT_PRESIGNED_URL_EXPIRATION_IN_SECONDS, TimeUnit.SECONDS);
+        } else {
+            builder.expiry(Math.toIntExact(expireDuration.toSeconds()), TimeUnit.SECONDS);
+        }
+        if (null != extraHeaders && !extraHeaders.isEmpty()) {
+            builder.extraHeaders(extraHeaders);
+        }
+        if (null != extraQueryParams && !extraQueryParams.isEmpty()) {
+            builder.extraQueryParams(extraQueryParams);
+        }
         try {
-            return minioClient.getPresignedObjectUrl(
-                GetPresignedObjectUrlArgs.builder()
-                    .method(Method.GET)
-                    .bucket(bucket)
-                    .object(objectName)
-                    .expiry(Math.toIntExact(expireDuration.toSeconds()), TimeUnit.SECONDS)
-                    .build());
+            return minioClient.getPresignedObjectUrl(builder.build());
         } catch (ErrorResponseException e) {
             if (e.errorResponse().code().equalsIgnoreCase("NoSuchKey")) {
                 throw new NoSuchKeyException(e.errorResponse().message(), e);
@@ -280,29 +318,62 @@ public class BucketService {
 
     /**
      * 获取一个预签名的 URL，用于上传对象
+     * <p>
+     * 注意：用户可以使用预签名的 URL 上传任意文件到对象存储而不需要通过验证。如果此行为不符合预期，请通过 lambda 或其他方式验证文件内容。
+     *
+     * @param objectName     对象名称
+     * @param expireDuration 链接过期时间，默认为 7 天；受到 MinIO 等服务实现的限制，若要设置更长时间，请考虑通过 bucket 的 Policy 设置
+     * @return 用于以 HTTP PUT 方式上传文件的 URL
+     * @throws ArithmeticException
+     * @throws GeneralBucketServiceException
+     * @see <a
+     * href="https://www.reddit.com/r/aws/comments/zmbw4h/enforce_content_type_during_upload_with_s3_signed/">Enforce
+     * content type during upload with S3 signed url</a>
+     */
+    public String presignObjectUrlToPut(
+        @NotNull String objectName,
+        @Nullable Duration expireDuration)
+        throws GeneralBucketServiceException, ArithmeticException {
+        return presignObjectUrlToPut(objectName, expireDuration, null, null);
+    }
+
+    /**
+     * 获取一个预签名的 URL，用于上传对象
+     * <p>
+     * 注意：用户可以使用预签名的 URL 上传任意文件到对象存储而不需要通过验证。如果此行为不符合预期，请通过 lambda 或其他方式验证文件内容。
+     * <p>
+     * 注意：不要尝试通过 extraHeaders 参数设置 Content-Type 限制，恶意用户可以绕过这个机制
      *
      * @param objectName       对象名称
-     * @param expireDuration   过期时间，受到 MinIO 等服务实现的限制，若要设置更长时间，请考虑使用 Policy
-     * @param extraHeaders
+     * @param expireDuration   链接过期时间，默认为 7 天；受到 MinIO 等服务实现的限制，若要设置更长时间，请考虑通过 bucket 的 Policy 设置
+     * @param extraHeaders     要求客户端发起的请求在请求头中包含指定键值对
      * @param extraQueryParams
      * @return 用于以 HTTP PUT 方式上传文件的 URL
      * @throws ArithmeticException
      * @throws GeneralBucketServiceException
+     * @see <a
+     * href="https://www.reddit.com/r/aws/comments/zmbw4h/enforce_content_type_during_upload_with_s3_signed/">Enforce
+     * content type during upload with S3 signed url</a>
      */
-    public String presignObjectUrlToPut(@NotNull String objectName,
-        @NotNull Duration expireDuration,
+    public String presignObjectUrlToPut(
+        @NotNull String objectName,
+        @Nullable Duration expireDuration,
         @Nullable Map<String, String> extraHeaders,
         @Nullable Map<String, String> extraQueryParams)
         throws GeneralBucketServiceException, ArithmeticException {
         GetPresignedObjectUrlArgs.Builder argsBuilder = GetPresignedObjectUrlArgs.builder()
             .method(Method.PUT)
             .bucket(bucket)
-            .object(objectName)
-            .expiry(Math.toIntExact(expireDuration.toSeconds()), TimeUnit.SECONDS);
-        if (extraHeaders != null && !extraHeaders.isEmpty()) {
+            .object(objectName);
+        if (null == expireDuration) {
+            argsBuilder.expiry(DEFAULT_PRESIGNED_URL_EXPIRATION_IN_SECONDS, TimeUnit.SECONDS);
+        } else {
+            argsBuilder.expiry(Math.toIntExact(expireDuration.toSeconds()), TimeUnit.SECONDS);
+        }
+        if (null != extraHeaders && !extraHeaders.isEmpty()) {
             argsBuilder.extraHeaders(extraHeaders);
         }
-        if (extraQueryParams != null && !extraQueryParams.isEmpty()) {
+        if (null != extraQueryParams && !extraQueryParams.isEmpty()) {
             argsBuilder.extraQueryParams(extraQueryParams);
         }
         try {
@@ -310,6 +381,58 @@ public class BucketService {
         } catch (ErrorResponseException | InsufficientDataException | InternalException |
                  InvalidKeyException | InvalidResponseException | NoSuchAlgorithmException |
                  ServerException | XmlParserException | IOException e) {
+            throw new GeneralBucketServiceException("Unclassified Error", e);
+        }
+    }
+
+    /**
+     * 构造一个 Map，需要通过 POST 方式上传文件时，可以使用这个 Map 作为 form-data 的数据。
+     * <p>
+     * 注意：恶意用户可伪造 HTTP POST 的 FormData 从而绕过验证。如果此行为不符合预期，请通过 lambda 或其他方式验证文件内容。
+     *
+     * @param objectName              上传对象的名称
+     * @param expireDuration          过期时间
+     * @param contentTypePrefix       可指定请求的 Content-Type 为何种模式，例如 image/ 匹配所有图片类型
+     * @param contentLengthLowerLimit 上传文件的最小长度
+     * @param contentLengthUpperLimit 上传文件的最大长度
+     * @return map of form data in HTTP POST
+     * @throws GeneralBucketServiceException
+     * @see <a
+     * href="https://www.reddit.com/r/aws/comments/zmbw4h/enforce_content_type_during_upload_with_s3_signed/">Enforce
+     * content type during upload with S3 signed url</a>
+     * @see <a
+     * href="https://min.io/docs/minio/linux/developers/java/API.html#getPresignedPostFormData">MinIO
+     * API - getPresignedPostFormData</a>
+     */
+    public Map<String, String> getPresignedPostFormData(
+        @NotNull String objectName,
+        @Nullable Duration expireDuration,
+        @Nullable String contentTypePrefix,
+        @Nullable Long contentLengthLowerLimit, @Nullable Long contentLengthUpperLimit)
+        throws GeneralBucketServiceException {
+        ZonedDateTime policyExpiry;
+        if (expireDuration == null) {
+            policyExpiry = ZonedDateTime.now()
+                .plusSeconds(DEFAULT_PRESIGNED_URL_EXPIRATION_IN_SECONDS);
+        } else {
+            policyExpiry = ZonedDateTime.now().plus(expireDuration);
+        }
+        PostPolicy policy = new PostPolicy(this.bucket, policyExpiry);
+        policy.addEqualsCondition("key", objectName);
+        if (StringUtils.isNotEmpty(contentTypePrefix)) {
+            policy.addStartsWithCondition("Content-Type", contentTypePrefix);
+        }
+        if (contentLengthLowerLimit != null && contentLengthUpperLimit != null
+            && contentLengthLowerLimit < contentLengthUpperLimit) {
+            policy.addContentLengthRangeCondition(contentLengthLowerLimit, contentLengthUpperLimit);
+        }
+        try {
+            Map<String, String> formData = minioClient.getPresignedPostFormData(policy);
+            formData.put("key", objectName);
+            return formData;
+        } catch (ErrorResponseException | InsufficientDataException | InternalException |
+                 InvalidKeyException | InvalidResponseException | IOException |
+                 NoSuchAlgorithmException | ServerException | XmlParserException e) {
             throw new GeneralBucketServiceException("Unclassified Error", e);
         }
     }
